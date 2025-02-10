@@ -1,0 +1,99 @@
+---
+title: "Blocking Comparison"
+output: html_notebook
+---
+
+Load the files.
+```{r warning=FALSE, message=FALSE}
+if (!requireNamespace("RecordLinkage", quietly = TRUE)) {
+  install.packages("RecordLinkage")
+}
+library('RecordLinkage', quietly=TRUE)
+```
+
+```{r cache = TRUE}
+sdfilepath = "C:\\Users\\adrianne\\Desktop\\surveydata.csv"
+adfilepath = "C:\\Users\\adrianne\\Desktop\\admindata.csv"
+
+surveydata <- read.csv(sdfilepath,header=TRUE,sep=",",stringsAsFactors = FALSE)
+surveydata <- data.frame(surveydata)
+
+admindata <- read.csv(adfilepath,header=TRUE,sep=",", stringsAsFactors = FALSE)
+admindata <- data.frame(admindata)
+
+## Remove periods from column names ##
+colnames(surveydata) <- c("matchid","dup","firstname","lastname","maritalstatus","race","dob","ssn","income","credit_card_num","city","zip","telephone")
+colnames(admindata) <- c("matchid","dup","firstname","lastname","maritalstatus","race","dob","ssn","income","credit_card_num","city","zip","telephone")
+
+## DROP EMPTY ROWS ##
+surveydata <- surveydata[complete.cases(surveydata[ ,1:2]), ]
+admindata <- admindata[complete.cases(admindata[ ,1:2]), ]
+```
+
+```{r cache=TRUE}
+# new column with first initial last names concatenated
+surveydata$fullname <- paste(substring(surveydata$firstname,1,1), surveydata$lastname, sep = '')
+admindata$fullname <- paste(substring(admindata$firstname,1,1), admindata$lastname, sep = '')
+
+# separate day/month/year columns for DOB
+surveydata$dob<- as.Date(surveydata$dob, "%m/%d/%Y")
+admindata$dob<- as.Date(admindata$dob, "%m/%d/%Y")
+surveydata$month<- as.numeric(format(surveydata$dob, format = "%m"))
+surveydata$day<- as.numeric(format(surveydata$dob, format = "%d"))
+surveydata$year<- as.numeric(format(surveydata$dob, format = "%Y"))
+admindata$month<- as.numeric(format(admindata$dob, format = "%m"))
+admindata$day<- as.numeric(format(admindata$dob, format = "%d"))
+admindata$year<- as.numeric(format(admindata$dob, format = "%Y"))
+
+# first three letters of last name (for block field)
+surveydata$lastthree <- substring(surveydata$lastname,1,3)
+admindata$lastthree <- substring(admindata$lastname,1,3)
+str(surveydata)
+```
+
+```{r}
+identity_survey<- surveydata[ , "matchid"]
+identity_admin<- admindata[ , "matchid"]
+```
+
+
+BLOCKING ON CITY, USING NAMES VARIABLE FOR LINKAGES:
+```{r warning=FALSE, cache = TRUE}
+first <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), strcmp=T, strcmpfun="jarowinkler", exclude=c(1:2, 5:13, 15:18))
+```
+
+```{r cache = TRUE}
+firstw <- emWeights(first, cutoff = 0.95) #you set cutoff - it can be higher or lower if you wish
+```
+
+```{r}
+print(firstw)
+summary(firstw@Wdata[])
+```
+
+```{r}
+first_class1 <- emClassify(firstw, threshold.upper = 0)
+getTable(first_class1)
+getErrorMeasures(first_class1)
+```
+
+
+BLOCKING ON ZIP, USING NAMES VARIABLE FOR LINKAGES:
+```{r warning=FALSE, cache = TRUE}
+second <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("zip"), strcmp=T, strcmpfun="jarowinkler", exclude=c(1:2, 5:13, 15:18))
+```
+
+```{r cache = TRUE}
+secondw <- emWeights(second, cutoff = 0.95) #you set cutoff - it can be higher or lower if you wish
+```
+
+```{r}
+print(secondw)
+summary(secondw@Wdata[])
+```
+
+```{r}
+second_class1 <- emClassify(secondw, threshold.upper = 0)
+getTable(second_class1)
+getErrorMeasures(second_class1)
+```

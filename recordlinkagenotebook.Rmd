@@ -1,0 +1,337 @@
+---
+title: "Record Linkage Exercise"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+### LOAD PACKAGE
+
+To begin, we need to make sure we have the `RecordLinkage` package installed and bring it in.
+
+```{r warning=FALSE, message=FALSE}
+if (!requireNamespace("RecordLinkage", quietly = TRUE)) {
+  install.packages('RecordLinkage')
+}
+library('RecordLinkage', quietly=TRUE)
+```
+
+### HOW DOES STRCMP WORK?
+
+Before we get into working with an actual dataset, let's take a moment to look at how strcmp works in the RecordLinkage package.  You can use both Jaro-Winkler and the Levenshtein distance for string comparison in this package.  Additionally, your strings can be adjusted to phonetic forms of the items, to aid in comparison of misspelled words.  
+
+Jaro-Winkler comparison takes three weight arguments and r, the Maximum transposition radius.  The default values are explicitly employed in the examples below.  For more details, this paper is helpful:
+
+*Winkler, W.E.: String Comparator Metrics and Enhanced Decision Rules in the Fellegi-Sunter Model of Record Linkage. In: Proceedings of the Section on Survey Research Methods, American Statistical Association (1990), S. 354-369.*
+
+levenshteinDist returns the distance value (an integer), levenshteinSim returns the similarity value (a value between 0 and 1).
+
+The string comparisons are case-sensitive - "R" and "r" have a similarity of 0.
+```{r}
+str1 = "Katharine"
+str2 = "Katherine"
+jarowinkler(str1, str2, W_1=1/3, W_2=1/3, W_3=1/3, r=0.5)
+levenshteinSim(str1, str2)
+levenshteinDist(str1, str2)
+soundex(str1)
+soundex(str2)
+```
+
+Comparing a string to a vector of strings:
+```{r}
+str3 = "Catherine"
+jarowinkler(str1, c(str2, str3), W_1=1/3, W_2=1/3, W_3=1/3, r=0.5)
+levenshteinSim(str1, c(str2, str3))
+levenshteinDist(str1, c(str2, str3))
+soundex(str3)
+```
+
+Case sensitivity:
+```{r}
+str4 = "KATHARINE"
+str5 = "katharine"
+jarowinkler(str4, str5, W_1=1/3, W_2=1/3, W_3=1/3, r=0.5)
+levenshteinSim(str4, str5)
+levenshteinDist(str4, str5)
+soundex1 <- soundex(str4)
+soundex2 <- soundex(str5)
+soundex1
+soundex2
+levenshteinSim(soundex1,soundex2)
+```
+
+
+
+### LOAD AND SETUP DATA
+
+Now we will read in the data.  Note the two slashes are required in Windows file paths.  You will need to replace the filepath with where you stored the file on your computer. Also, some code that adjusts the column names for compliance with the big data command requirements is included.
+```{r cache = TRUE}
+sdfilepath = "surveydata.csv"
+adfilepath = "admindata.csv"
+
+surveydata <- read.csv(sdfilepath,header=TRUE,sep=",",stringsAsFactors = FALSE)
+surveydata <- data.frame(surveydata)
+
+admindata <- read.csv(adfilepath,header=TRUE,sep=",", stringsAsFactors = FALSE)
+admindata <- data.frame(admindata)
+
+## Remove periods from column names ##
+colnames(surveydata) <- c("matchid","dup","firstname","lastname","maritalstatus","race","dob","ssn","income","credit_card_num","city","zip","telephone")
+colnames(admindata) <- c("matchid","dup","firstname","lastname","maritalstatus","race","dob","ssn","income","credit_card_num","city","zip","telephone")
+
+## DROP EMPTY ROWS ##
+surveydata <- surveydata[complete.cases(surveydata[ ,1:2]), ]
+admindata <- admindata[complete.cases(admindata[ ,1:2]), ]
+```
+
+What are the columns included in the two dataframes?
+```{r}
+cat("SURVEY DATA VARIABLES\n")
+colnames(surveydata)
+cat("\n\nADMIN DATA VARIABLES\n")
+colnames(admindata)
+cat("\n\nDATA TYPES\n")
+str(surveydata)
+```
+
+Create new columns derived from the existing data.
+```{r cache=TRUE}
+# new column with first initial last names concatenated
+surveydata$fullname <- paste(substring(surveydata$firstname,1,1), surveydata$lastname, sep = '')
+admindata$fullname <- paste(substring(admindata$firstname,1,1), admindata$lastname, sep = '')
+
+# separate day/month/year columns for DOB
+surveydata$dob<- as.Date(surveydata$dob, "%m/%d/%y")
+admindata$dob<- as.Date(admindata$dob, "%m/%d/%y")
+surveydata$month<- as.numeric(format(surveydata$dob, format = "%m"))
+surveydata$day<- as.numeric(format(surveydata$dob, format = "%d"))
+surveydata$year<- as.numeric(format(surveydata$dob, format = "%Y"))
+admindata$month<- as.numeric(format(admindata$dob, format = "%m"))
+admindata$day<- as.numeric(format(admindata$dob, format = "%d"))
+admindata$year<- as.numeric(format(admindata$dob, format = "%Y"))
+
+# first three letters of last name (for block field)
+surveydata$lastthree <- substring(surveydata$lastname,1,3)
+admindata$lastthree <- substring(admindata$lastname,1,3)
+str(surveydata)
+```
+
+Create identity vectors with the matchid variable - a variable that indicates the correct matches of the survey and admin data.
+```{r}
+identity_survey<- surveydata[ , "matchid"]
+identity_admin<- admindata[ , "matchid"]
+```
+
+
+## FIRST LINKAGE (just using names)
+
+First, print the column names in the surveydata so we can get the numbers associated for the exclude argument below. (admindata has the same columns)
+```{r}
+colnames(surveydata)
+```
+
+Now we will try our first linkage - we will initially match using only the name fields, using string comparison.  We will use city as a blockfield - requiring an exact match on this field - to limit the number of potential matches somewhat.  There are only 5 cities represented in the data so this is a conservative blocking.  The exclude arguement includes the column numbers of the fields we wish to not include in the matching process. Therefore it should list all the columns you don't want to include.
+
+We want to use firstname, lastname, and fullname which are columns 3, 4, and 14.  We will exclude all other columns (1:2, 5:13, 15:18)
+For this first run we'll use the default string comparison, Jaro-Winkler.
+```{r warning=FALSE, cache = TRUE}
+first <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), strcmp=T, strcmpfun="jarowinkler", exclude=c(1:2, 5:13))
+```
+
+The resulting data object contains a row for each potential match. Let's take a look at first 5 pair rows generated.  id1 is the ROW number of the record in the first dataset, surveydata; id2 is the row number in the record second dataset, admindata.  These are different from the matchid variable included in the dataset.  The values under firstname, lastname, and fullname are the Jaro-Winkler distances between the two firstnames, two lastnames, etc. in each pair.  is_match is indicated by the identity vectors (the true values), not by running this step of the data linkage procedure.
+```{r}
+first@pairs[1:5,]
+
+```
+
+Let's pick a non-match (rows 1 in both datasets, indicated by the first row of the pairs) and a match (row 1 in the surveydata to row 3 in the admindata, as indicated by the third row in the above pairs) and look at the actual values of those items in the original data to see how the actual data compares to the obtained similarities.
+```{r}
+cat("FIRST\n")
+surveydata[1,]$firstname
+admindata[1,]$firstname
+admindata[3,]$firstname
+cat("\n\nLAST\n")
+surveydata[1,]$lastname
+admindata[1,]$lastname
+admindata[3,]$lastname
+cat("\n\nFULL\n")
+surveydata[1,]$fullname
+admindata[1,]$fullname
+admindata[3,]$fullname
+
+```
+
+### ASIDE: Alternate ways to perform the linkage
+There are alternative ways to obtain the information about whether two records are potential matches.  Here we can try the same linkage without strcmp or with using the Levenshtein distance or phonetic match.
+```{r warning=FALSE, cache=TRUE}
+first_nostring <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), exclude=c(1:2, 5:13, 15:18))
+```
+```{r warning=FALSE, cache=TRUE}
+first_leven <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), strcmp=T, strcmpfun = "levenshtein", exclude=c(1:2, 5:13, 15:18))
+
+```
+```{r warning=FALSE}
+first_phon <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), phonetic = T, exclude=c(1:2, 5:13, 15:18))
+```
+
+```{r}
+first_nostring@pairs[1:5,]
+first_leven@pairs[1:5,]
+first_phon@pairs[1:5,]
+```
+
+### BACK to the first linkage process: EM Weights
+Remember, previously we ran the following code to generate the Jaro-Winkler similarity values.
+```{r eval=FALSE, cache=TRUE}
+first <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), strcmp=T, exclude=c(1:2, 5:13, 15:18))
+```
+
+The next step in the process of performing the linkage the obtain the summary weights for these potential links.  In order to do this, we need to tell the EM algorithm which cutoff we want to use for the similarity distances to convert those numbers into either 0 or 1.
+
+"The appropriate value of cutoff depends on the choice of string comparator. The default is adjusted to jarowinkler, a lower value (e.g. 0.7) is recommended for levenshteinSim" (Borg and Sariyar, 2015). 
+
+The cutoff is used to convert each of the distance values to 0/1 binary values.
+```{r cache = TRUE}
+firstw <- emWeights(first, cutoff = 0.95) #you set cutoff - it can be higher or lower if you wish
+```
+
+We'll print the summary of the linkage process, the first 5 weights (corresponding to the rows we looked at above), and a summary of the distribution of the weights.
+```{r}
+print(firstw)
+firstw@Wdata[1:5,]
+
+summary(firstw@Wdata[])
+```
+
+
+Using those weights we will classify the links into matches and nonmatches, which is required for the prediction process.
+
+You use thresholds based on the weight distribution (above) for the classifications.
+A pair with weight w is classified as a link if w >= threshold.upper, as a possible link if threshold.upper <= w >= threshold.lower and as a non-link if w < threshold.lower.
+
+To get an idea of what the weights look like, we'll first get our pairs and inspect their weights.  We know there are a bunch of weights below 0, but they're likely non-matches.  To limit processing time and size of objects, we'll only display with a weight higher than 0 here as they are most likely to be potential links.
+```{r}
+pairs=getPairs(firstw, min.weight=0, single.rows=TRUE)
+```
+
+```{r}
+hist(as.numeric(paste(pairs$Weight)))
+```
+
+For our first classification, we'll specify only one threshold, the threshold.upper, the level in which at or above that weight pairs are considered matches.  In this case there will be no possible links, only Links (L) and Non-Links (NL).  
+
+We'll start with setting the threshold at the mean of the weights (-19.68), indicated in the distribution summary above.  This is an impractical value, however, because anything below 0 is very likely not a match.
+```{r}
+first_class1 <- emClassify(firstw, threshold.upper = -19.68)
+```
+```{r cache=TRUE}
+getTable(first_class1)
+```
+Above you can see the classification table that shows the true status of the matches (from our identity vectors) and the classification (N=non-link, P=possible link, L=Link) 
+
+We can also get the error measures for this linkage.  Below you will see that the sensitivity is high (you're getting almost all of the true matches as links), but your precision is low (you're getting over 66k of non-matches as links).
+```{r}
+getErrorMeasures(first_class1)
+```
+
+Let's set our threshold slightly higher and see how it affects our classification. Let's try 0.
+```{r}
+first_class2 <- emClassify(firstw, threshold.upper = 0)
+getTable(first_class2)
+getErrorMeasures(first_class2)
+```
+
+This greatly improves our precision with a slight loss to sensitivity, but in practically, half of the things we have classified as links are in actuality non-matches.  We should try a higher threshold to further increase our precision.
+
+Going back to our histogram, we see that large number of the links have weights over 25, with about 3000ish with weights over 30.  Lets try setting two thresholds, with our lower threshold at 25 and our upper threshold at 30 and see how it effects our outcome stats.
+```{r cache=TRUE}
+first_class3 <- emClassify(firstw, threshold.lower = 25, threshold.upper = 30)
+getTable(first_class3)
+getErrorMeasures(first_class3)
+```
+This appears to greatly improve the precision of our linkages (many fewer false positives) with only a slight decrease in sensitivity. But in this case we have about 2300 possible links which would have to be manually inspected, a time consuming and labor intensive process.
+
+
+### Optimal Threshold
+The package does have a method one can use to obtain an "optimal" threshold.  The authors of the package describe how the optimal value is obtained as thus:
+"For the following, it is assumed that all records with weights greater than or equal to the threshold are classified as links, the remaining as non-links. If no further arguments are given, a threshold which minimizes the absolute number of misclassified record pairs is returned"
+
+Basically, the optimal threshold is guided by maximizing accuracy, which may not be the best "optimal" threshold for practical work with large numbers of possible matches. 
+
+```{r cache=TRUE}
+threshold <-optimalThreshold(firstw)
+threshold
+```
+The optimal threshold we obtain is -2.2. As we've seen above, anything below zero is likely impractical.  Additionally, while accuracy is maximized, we have a large number of possible links (over 8 million) and the accuracy measure is driven up by the large number of true negatives. (see classification table below)
+
+```{r}
+first_class4 <- emClassify(firstw, threshold.upper = threshold)
+getTable(first_class4)
+getErrorMeasures(first_class4)
+```
+
+## SECOND LINKAGE (using more variables)
+We can also improve the quality of the record linkage by using more variables in our linkage process.  Let's refresh ourselves on the columns available.
+```{r}
+colnames(surveydata)
+```
+
+This time we want to use the names, dob (with month day year variables), zip, and ssn. So we will include columns 3,4,8,12,14,15,16,17. We will keep city as the blockfield.  Note that we specify only the variables of type "chr" in the strcmp argument, of which ssn is one.
+```{r warning=FALSE}
+second <- RLBigDataLinkage(surveydata, admindata, identity1=identity_survey, identity2 = identity_admin, blockfld = c("city"), strcmp=c(3,4,8,14), exclude=c(1:2, 5:7, 9:11, 13, 18))
+```
+
+```{r}
+second@pairs[1:5,]
+
+```
+
+And then get the weights
+```{r cache=TRUE}
+secondw <- emWeights(second, cutoff = 0.95) #you set cutoff - it can be higher or lower if you wish - be careful, setting the cutoff lower may result in the code running for a lengthy amount of time.
+print(secondw)
+summary(secondw@Wdata[])
+```
+
+Now use the classifier to classify links vs. non links.
+
+Let's again look at the weights to pick our potential weight threshold.
+```{r}
+pairs=getPairs(secondw, min.weight=0, single.rows=TRUE)
+hist(as.numeric(paste(pairs$Weight)))
+```
+
+The mean of the weights is now about -13, but we'll first try a weight of 0 since anything below 0 is not likely to be an actual link.
+
+
+```{r cache=TRUE}
+second_class1 <- emClassify(secondw, threshold.upper = 0)
+getTable(second_class1)
+getErrorMeasures(second_class1)
+```
+With this threshold we get very few false negatives, but now a large number of false positives.  So our sensitivity is very high, but our precision is very low.  These are the tradeoffs we deal with in setting the appropriate thresholds, especially when you don't know the true status of the matches.
+
+Judging by the histogram, let's try one final set of weight thresholds.  Let's set 20 as the lower threshold and 40 as the upper threshold.
+
+```{r cache=TRUE}
+second_class2 <- emClassify(secondw, threshold.lower = 20, threshold.upper = 40)
+getTable(second_class2)
+getErrorMeasures(second_class2)
+```
+In this case we get no false positives, so our precision is 1.  But we have about 14% of our true links classified as probable or non links, 
+
+## GET PAIRS AND EXPORT DATASET
+If you were going to use your final set of matched pairs for further analysis you would want to use getPairs to obtain just the records for the records classified as links.  You can also export them out of R into a csv file.
+```{r}
+finalpairs = getPairs(second_class2, filter.link="link", single.rows=TRUE)
+```
+
+```{r}
+csvfilepath="finalpairs.csv"
+write.csv(finalpairs, file=csvfilepath)
+```
+
+
+## REFERENCE (Package Documentation)
+Andreas Borg and Murat Sariyar (2015). RecordLinkage: Record Linkage in R.
