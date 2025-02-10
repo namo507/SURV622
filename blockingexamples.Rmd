@@ -12,8 +12,8 @@ library('RecordLinkage', quietly=TRUE)
 ```
 
 ```{r cache = TRUE}
-sdfilepath = "C:\\Users\\adrianne\\Desktop\\surveydata.csv"
-adfilepath = "C:\\Users\\adrianne\\Desktop\\admindata.csv"
+sdfilepath = "/Users/namomac/Desktop/SURV622/admindata.csv"
+adfilepath = "/Users/namomac/Desktop/SURV622/surveydata.csv"
 
 surveydata <- read.csv(sdfilepath,header=TRUE,sep=",",stringsAsFactors = FALSE)
 surveydata <- data.frame(surveydata)
