@@ -1,0 +1,123 @@
+---
+title: "Assignment 1: Namit Shrivastava"
+format: pdf
+editor: visual
+---
+
+Firstly, I will be installing and loading the RecordLinkage package
+```{r warning=FALSE, message=FALSE}
+if (!requireNamespace("RecordLinkage", quietly = TRUE)) {
+  install.packages('RecordLinkage')
+}
+library('RecordLinkage', quietly=TRUE)
+```
+
+Now given the two csv files, I will be loading and cleaning the data.
+
+```{r}
+# Importing datasets
+sdfilepath = "surveydata.csv"
+adfilepath = "admindata.csv"
+
+# Reading the data
+surveydata <- read.csv(sdfilepath, header=TRUE, sep=",", stringsAsFactors = FALSE)
+admindata <- read.csv(adfilepath, header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Cleaning column names
+colnames(surveydata) <- c("matchid","dup","firstname","lastname","maritalstatus",
+                         "race","dob","ssn","income","credit_card_num","city",
+                         "zip","telephone")
+colnames(admindata) <- c("matchid","dup","firstname","lastname","maritalstatus",
+                        "race","dob","ssn","income","credit_card_num","city",
+                        "zip","telephone")
+
+# Removing empty rows
+surveydata <- surveydata[complete.cases(surveydata[,1:2]), ]
+admindata <- admindata[complete.cases(admindata[,1:2]), ]
+
+# Creating derived columns
+# 1. Full name (first initial + last name)
+surveydata$fullname <- paste(substring(surveydata$firstname,1,1), 
+                           surveydata$lastname, sep='')
+admindata$fullname <- paste(substring(admindata$firstname,1,1), 
+                          admindata$lastname, sep='')
+
+# 2. Processing dates
+surveydata$dob <- as.Date(surveydata$dob, format="%m/%d/%Y")
+admindata$dob <- as.Date(admindata$dob, format="%m/%d/%Y")
+
+# 3. Extracting date components
+surveydata$month <- as.numeric(format(surveydata$dob, "%m"))
+surveydata$day <- as.numeric(format(surveydata$dob, "%d"))
+surveydata$year <- as.numeric(format(surveydata$dob, "%Y"))
+admindata$month <- as.numeric(format(admindata$dob, "%m"))
+admindata$day <- as.numeric(format(admindata$dob, "%d"))
+admindata$year <- as.numeric(format(admindata$dob, "%Y"))
+
+# 4. First three letters of lastname
+surveydata$lastthree <- substring(surveydata$lastname,1,3)
+admindata$lastthree <- substring(admindata$lastname,1,3)
+
+# Creating identity vectors
+identity_survey <- surveydata$matchid
+identity_admin <- admindata$matchid
+
+# Verify the data
+cat("Data dimensions:\n")
+cat("Survey data:", dim(surveydata), "\n")
+cat("Admin data:", dim(admindata), "\n")
+
+# Check for NA values in key fields
+cat("\nMissing values in key fields:\n")
+cat("Survey DOB NAs:", sum(is.na(surveydata$dob)), "\n")
+cat("Admin DOB NAs:", sum(is.na(admindata$dob)), "\n")
+```
+
+## Approach 1: Exact matching with no blocking
+
+```{r}
+# Define columns for comparison (positions of firstname, lastname, dob)
+compare.cols <- c(3,4,7)  # firstname, lastname, dob positions
+
+# Exact matching without blocking
+exact_match <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  strcmp = rep(FALSE, length(compare.cols)),  # FALSE for each comparison column
+  exclude = setdiff(1:ncol(surveydata), compare.cols)  # Exclude all except compare.cols
+)
+
+# Calculate matching weights with more conservative parameters
+exact_weights <- emWeights(
+  exact_match,
+  cutoff = 0.8  # More conservative cutoff
+)
+
+# Classify pairs with clerical review range
+exact_result <- emClassify(
+  exact_weights,
+  threshold.upper = 0.95,  # High confidence matches
+  threshold.lower = 0.85   # Low confidence matches
+)
+
+# Analysis section
+cat("\nExact Matching Results:\n")
+table <- getTable(exact_result)
+print(table)
+
+cat("\nError Measures:\n")
+errors <- getErrorMeasures(exact_result)
+print(errors)
+
+# Calculate clerical review cases
+n_clerical <- sum(exact_result$prediction == "P")
+cat("\nNumber of pairs requiring clerical review:", n_clerical, "\n")
+
+# Add precision and recall calculations
+if(!is.null(errors)) {
+  cat("\nPrecision:", round(errors$precision, 4))
+  cat("\nRecall:", round(errors$recall, 4), "\n")
+}
+```
