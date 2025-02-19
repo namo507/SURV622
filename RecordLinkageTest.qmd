@@ -73,51 +73,85 @@ cat("Survey DOB NAs:", sum(is.na(surveydata$dob)), "\n")
 cat("Admin DOB NAs:", sum(is.na(admindata$dob)), "\n")
 ```
 
-## Approach 1: Exact matching with no blocking
+Now let me analyse and explain the data in layman terms.
 
+So I have 2 datasets, a survey dataset with 3,000 records and a larger administrative dataset with 13,551 records. Both datasets now have 18 columns each, which includes our original fields plus the new ones that I created (like the full name combining first initial and last name, and the separated date components).
+
+What's interesting, and potentially concerning, is that I have some missing dates of birth: 11 missing in the survey data and 49 missing in the administrative data. This could impact my matching process since date of birth is often a key field for linking records. I will need to keep this in mind when I move forward with record linkage, as these records might be harder to match confidently.
+
+
+## Approach 1: Exact Matching (No Blocking)
 ```{r}
-# Define columns for comparison (positions of firstname, lastname, dob)
-compare.cols <- c(3,4,7)  # firstname, lastname, dob positions
-
-# Exact matching without blocking
-exact_match <- RLBigDataLinkage(
+# 1. Using Jarowinkler
+exact_jarowinkler <- RLBigDataLinkage(
   dataset1 = surveydata,
   dataset2 = admindata,
   identity1 = identity_survey,
   identity2 = identity_admin,
-  strcmp = rep(FALSE, length(compare.cols)),  # FALSE for each comparison column
-  exclude = setdiff(1:ncol(surveydata), compare.cols)  # Exclude all except compare.cols
+  blockfld = NULL,
+  strcmp = TRUE,
+  strcmpfun = "jarowinkler",
+  exclude = c(1:2, 5:13, 15:18)
 )
-
-# Calculate matching weights with more conservative parameters
-exact_weights <- emWeights(
-  exact_match,
-  cutoff = 0.8  # More conservative cutoff
-)
-
-# Classify pairs with clerical review range
-exact_result <- emClassify(
-  exact_weights,
-  threshold.upper = 0.95,  # High confidence matches
-  threshold.lower = 0.85   # Low confidence matches
-)
-
-# Analysis section
-cat("\nExact Matching Results:\n")
-table <- getTable(exact_result)
-print(table)
-
-cat("\nError Measures:\n")
-errors <- getErrorMeasures(exact_result)
-print(errors)
-
-# Calculate clerical review cases
-n_clerical <- sum(exact_result$prediction == "P")
-cat("\nNumber of pairs requiring clerical review:", n_clerical, "\n")
-
-# Add precision and recall calculations
-if(!is.null(errors)) {
-  cat("\nPrecision:", round(errors$precision, 4))
-  cat("\nRecall:", round(errors$recall, 4), "\n")
-}
+exact_jarowinkler_w <- emWeights(exact_jarowinkler, cutoff = 0.95)
+exact_jarowinkler_class <- emClassify(exact_jarowinkler_w, threshold.upper = 0)
 ```
+```{r}
+# 2. Using Levenshtein
+exact_levenshtein <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = NULL,
+  strcmp = TRUE,
+  strcmpfun = "levenshtein",
+  exclude = c(1:2, 5:13, 15:18)
+)
+exact_levenshtein_w <- emWeights(exact_levenshtein, cutoff = 0.95)
+exact_levenshtein_class <- emClassify(exact_levenshtein_w, threshold.upper = 0)
+```
+```{r}
+# 3. Using Phonetic Matching (Soundex)
+exact_phonetic <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = NULL,
+  phonetic = TRUE,
+  exclude = c(1:2, 5:13, 15:18)
+)
+exact_phonetic_w <- emWeights(exact_phonetic, cutoff = 0.95)
+exact_phonetic_class <- emClassify(exact_phonetic_w, threshold.upper = 0)
+```
+```{r}
+# Extract error measures from each method
+err_jarowinkler <- getErrorMeasures(exact_jarowinkler_class)
+err_levenshtein <- getErrorMeasures(exact_levenshtein_class)
+err_phonetic     <- getErrorMeasures(exact_phonetic_class)
+
+# Create a data frame summarizing key metrics
+comparison_table <- data.frame(
+  Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
+  Accuracy = c(err_jarowinkler$accuracy,
+               err_levenshtein$accuracy,
+               err_phonetic$accuracy),
+  Precision = c(err_jarowinkler$precision,
+                err_levenshtein$precision,
+                err_phonetic$precision),
+  Sensitivity = c(err_jarowinkler$sensitivity,
+                  err_levenshtein$sensitivity,
+                  err_phonetic$sensitivity),
+  Specificity = c(err_jarowinkler$specificity,
+                  err_levenshtein$specificity,
+                  err_phonetic$specificity)
+)
+
+print(comparison_table)
+```
+
+
+
+
+
