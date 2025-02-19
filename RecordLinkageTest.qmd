@@ -151,7 +151,11 @@ comparison_table <- data.frame(
 print(comparison_table)
 ```
 
+The Jaro-Winkler method seems to strike a nice balance. While it only gets about 10% precision (meaning 1 in 10 matches is correct), it manages to catch about 90% of the actual matches (that's the sensitivity score). I'm particularly interested with its accuracy of 99.95%, though this high number is mainly because it's good at identifying non-matches, which make up most of our pairs.
 
+The Levenshtein distance approach is pretty similar but with a trade-off. It's slightly more accurate overall (99.95%), but it misses more true matches, it only catches about 80% of them. This might not be the best choice if we really need to find as many matches as possible.
+
+The Phonetic matching (using Soundex) is interesting - it's the most aggressive in finding matches, catching almost 96% of true matches! However, it pays for this with the lowest precision (only 5.3%). This means it's generating a lot of false positives, it's saying "these records match!" when they actually don't. I imagine this as being overly optimistic about finding matches.
 
 
 
