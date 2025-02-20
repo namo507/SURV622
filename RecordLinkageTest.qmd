@@ -158,4 +158,67 @@ The Levenshtein distance approach is pretty similar but with a trade-off. It's s
 The Phonetic matching (using Soundex) is interesting - it's the most aggressive in finding matches, catching almost 96% of true matches! However, it pays for this with the lowest precision (only 5.3%). This means it's generating a lot of false positives, it's saying "these records match!" when they actually don't. I imagine this as being overly optimistic about finding matches.
 
 
+## Approach 2: Blocking on City
+
+```{r}
+# 1. Using Jarowinkler
+city_block_jarowinkler <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "city",
+  strcmp = TRUE,
+  strcmpfun = "jarowinkler",
+  exclude = c(1:2, 5:13, 15:18)
+)
+city_block_jarowinkler_w <- emWeights(city_block_jarowinkler, cutoff = 0.95)
+city_block_jarowinkler_class <- emClassify(city_block_jarowinkler_w, threshold.upper = 0)
+```
+```{r}
+# 2. Using Levenshtein
+city_block_levenshtein <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "city",
+  strcmp = TRUE,
+  strcmpfun = "levenshtein",
+  exclude = c(1:2, 5:13, 15:18)
+)
+city_block_levenshtein_w <- emWeights(city_block_levenshtein, cutoff = 0.95)
+city_block_levenshtein_class <- emClassify(city_block_levenshtein_w, threshold.upper = 0)
+```
+```{r}
+# 3. Using Phonetic Matching (Soundex)
+city_block_phonetic <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "city",
+  phonetic = TRUE,
+  exclude = c(1:2, 5:13, 15:18)
+)
+city_block_phonetic_w <- emWeights(city_block_phonetic, cutoff = 0.95)
+city_block_phonetic_class <- emClassify(city_block_phonetic_w, threshold.upper = 0)
+```
+```{r}
+# Extract error measures
+err_city_block_jarowinkler <- getErrorMeasures(city_block_jarowinkler_class)
+err_city_block_levenshtein <- getErrorMeasures(city_block_levenshtein_class)
+err_city_block_phonetic    <- getErrorMeasures(city_block_phonetic_class)
+
+# Create Comparison Table
+comparison_table_city_block <- data.frame(
+  Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
+  Accuracy = c(err_city_block_jarowinkler$accuracy, err_city_block_levenshtein$accuracy, err_city_block_phonetic$accuracy),
+  Precision = c(err_city_block_jarowinkler$precision, err_city_block_levenshtein$precision, err_city_block_phonetic$precision),
+  Sensitivity = c(err_city_block_jarowinkler$sensitivity, err_city_block_levenshtein$sensitivity, err_city_block_phonetic$sensitivity),
+  Specificity = c(err_city_block_jarowinkler$specificity, err_city_block_levenshtein$specificity, err_city_block_phonetic$specificity)
+)
+
+print(comparison_table_city_block)
+```
 
