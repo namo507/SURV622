@@ -222,3 +222,67 @@ comparison_table_city_block <- data.frame(
 print(comparison_table_city_block)
 ```
 
+
+## Approach 3: Blocking on Zip
+
+```{r}
+# 1. Using Jarowinkler
+zip_block_jarowinkler <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "zip",
+  strcmp = TRUE,
+  strcmpfun = "jarowinkler",
+  exclude = c(1:2, 5:13, 15:18)
+)
+zip_block_jarowinkler_w <- emWeights(zip_block_jarowinkler, cutoff = 0.95)
+zip_block_jarowinkler_class <- emClassify(zip_block_jarowinkler_w, threshold.upper = 0)
+```
+```{r}
+# 2. Using Levenshtein
+zip_block_levenshtein <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "zip",
+  strcmp = TRUE,
+  strcmpfun = "levenshtein",
+  exclude = c(1:2, 5:13, 15:18)
+)
+zip_block_levenshtein_w <- emWeights(zip_block_levenshtein, cutoff = 0.95)
+zip_block_levenshtein_class <- emClassify(zip_block_levenshtein_w, threshold.upper = 0)
+```
+```{r}
+# 3. Using Phonetic Matching (Soundex)
+zip_block_phonetic <- RLBigDataLinkage(
+  dataset1 = surveydata,
+  dataset2 = admindata,
+  identity1 = identity_survey,
+  identity2 = identity_admin,
+  blockfld = "zip",
+  phonetic = TRUE,
+  exclude = c(1:2, 5:13, 15:18)
+)
+zip_block_phonetic_w <- emWeights(zip_block_phonetic, cutoff = 0.95)
+zip_block_phonetic_class <- emClassify(zip_block_phonetic_w, threshold.upper = 0)
+```
+```{r}
+# Extract error measures
+err_zip_block_jarowinkler <- getErrorMeasures(zip_block_jarowinkler_class)
+err_zip_block_levenshtein <- getErrorMeasures(zip_block_levenshtein_class)
+err_zip_block_phonetic    <- getErrorMeasures(zip_block_phonetic_class)
+
+# Create Comparison Table
+comparison_table_zip_block <- data.frame(
+  Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
+  Accuracy = c(err_zip_block_jarowinkler$accuracy, err_zip_block_levenshtein$accuracy, err_zip_block_phonetic$accuracy),
+  Precision = c(err_zip_block_jarowinkler$precision, err_zip_block_levenshtein$precision, err_zip_block_phonetic$precision),
+  Sensitivity = c(err_zip_block_jarowinkler$sensitivity, err_zip_block_levenshtein$sensitivity, err_zip_block_phonetic$sensitivity),
+  Specificity = c(err_zip_block_jarowinkler$specificity, err_zip_block_levenshtein$specificity, err_zip_block_phonetic$specificity)
+)
+
+print(comparison_table_zip_block)
+```
