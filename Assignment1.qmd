@@ -402,3 +402,73 @@ The phonetic matching with lastname blocking actually performed slightly better 
 So, I can conclude that by using lastname as a blocking field has given me a completely different perspective. While the previous blocking methods (especially ZIP) were great at precision but sometimes missed matches, lastname blocking is catching almost every possible match but at the cost of more false positives. The lower accuracy (around 88% compared to 99% in previous methods) suggests that lastname blocking might be too broad i.e. it's keeping too many potential matches for comparison.
 
 If I had to make a recommendation based on these results, I'd probably stick with the ZIP code blocking approach unless finding every possible match is absolutely critical. The lastname blocking method might be useful as a secondary check to catch any matches that the more restrictive blocking methods might have missed.
+
+Now let me bring in all these results of the approaches in one place for easier glance and also a plot visualization to quickly spot the best performing combinations.
+
+```{r}
+# Creating comprehensive comparison matrix
+all_results <- data.frame(
+  Approach = rep(c("No Blocking", "City Block", "ZIP Block", "Lastname Block"), each = 3),
+  Method = rep(c("Jarowinkler", "Levenshtein", "Phonetic"), 4),
+  Accuracy = c(
+    # No blocking results
+    err_jarowinkler$accuracy, err_levenshtein$accuracy, err_phonetic$accuracy,
+    # City blocking results
+    err_city_block_jarowinkler$accuracy, err_city_block_levenshtein$accuracy, err_city_block_phonetic$accuracy,
+    # ZIP blocking results
+    err_zip_block_jarowinkler$accuracy, err_zip_block_levenshtein$accuracy, err_zip_block_phonetic$accuracy,
+    # Lastname blocking results
+    err_lastname_block_jarowinkler$accuracy, err_lastname_block_levenshtein$accuracy, err_lastname_block_phonetic$accuracy
+  ),
+  Precision = c(
+    err_jarowinkler$precision, err_levenshtein$precision, err_phonetic$precision,
+    err_city_block_jarowinkler$precision, err_city_block_levenshtein$precision, err_city_block_phonetic$precision,
+    err_zip_block_jarowinkler$precision, err_zip_block_levenshtein$precision, err_zip_block_phonetic$precision,
+    err_lastname_block_jarowinkler$precision, err_lastname_block_levenshtein$precision, err_lastname_block_phonetic$precision
+  ),
+  Sensitivity = c(
+    err_jarowinkler$sensitivity, err_levenshtein$sensitivity, err_phonetic$sensitivity,
+    err_city_block_jarowinkler$sensitivity, err_city_block_levenshtein$sensitivity, err_city_block_phonetic$sensitivity,
+    err_zip_block_jarowinkler$sensitivity, err_zip_block_levenshtein$sensitivity, err_zip_block_phonetic$sensitivity,
+    err_lastname_block_jarowinkler$sensitivity, err_lastname_block_levenshtein$sensitivity, err_lastname_block_phonetic$sensitivity
+  )
+)
+
+library(knitr)
+kable(all_results, digits = 4, 
+      caption = "Comparison of All Record Linkage Approaches",
+      align = c('l', 'l', 'r', 'r', 'r'))
+```
+
+```{r}
+# Creating visualizations
+library(ggplot2)
+library(tidyr)
+
+# Converting to long format for plotting
+plot_data <- all_results %>%
+  gather(key = "Metric", value = "Value", -Approach, -Method)
+
+# Creating faceted plot
+ggplot(plot_data, aes(x = Method, y = Value, fill = Approach)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Metric, scales = "free_y") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom") +
+  labs(title = "Performance Metrics Across Different Approaches",
+       y = "Score",
+       x = "String Comparison Method") +
+  scale_fill_brewer(palette = "Set2")
+```
+```{r}
+# Creating heatmap for better visual comparison
+ggplot(plot_data, aes(x = Method, y = Approach, fill = Value)) +
+  geom_tile() +
+  facet_wrap(~Metric, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_c() +
+  labs(title = "Heatmap of Performance Metrics",
+       fill = "Score")
+```
