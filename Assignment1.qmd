@@ -151,11 +151,14 @@ comparison_table <- data.frame(
 print(comparison_table)
 ```
 
+* Jaro-Winkler Method
 The Jaro-Winkler method seems to strike a nice balance. While it only gets about 10% precision (meaning 1 in 10 matches is correct), it manages to catch about 90% of the actual matches (that's the sensitivity score). I'm particularly interested with its accuracy of 99.95%, though this high number is mainly because it's good at identifying non-matches, which make up most of our pairs.
 
+* Levenshtein Distance
 The Levenshtein distance approach is pretty similar but with a trade-off. It's slightly more accurate overall (99.95%), but it misses more true matches, it only catches about 80% of them. This might not be the best choice if we really need to find as many matches as possible.
 
-The Phonetic matching (using Soundex) is interesting - it's the most aggressive in finding matches, catching almost 96% of true matches! However, it pays for this with the lowest precision (only 5.3%). This means it's generating a lot of false positives, it's saying "these records match!" when they actually don't. I imagine this as being overly optimistic about finding matches.
+* Phonetic Matching
+The Phonetic matching (using Soundex) is interesting, it's the most aggressive in finding matches, catching almost 96% of true matches! However, it pays for this with the lowest precision (only 5.3%). This means it's generating a lot of false positives, it's saying "these records match!" when they actually don't. I imagine this as being overly optimistic about finding matches.
 
 
 ## Approach 2: Blocking on City
@@ -221,6 +224,22 @@ comparison_table_city_block <- data.frame(
 
 print(comparison_table_city_block)
 ```
+
+
+Now when I used city as a blocking variable (meaning I only compared records within the same city), I saw some really interesting improvements over the non-blocked approach from before:
+
+* Jaro-Winkler Method
+I'm quite impressed with how the Jaro-Winkler method performed here. Its precision jumped up to about 52% - that's a huge improvement from the previous 10%! This means when using city blocking, about half of our predicted matches are actually correct matches. It still maintains that strong 90% sensitivity, meaning it's catching most of the true matches. This is looking like a really solid approach.
+
+* Levenshtein Distance
+The Levenshtein method shows similar patterns to Jaro-Winkler, with about 51% precision. However, it's still missing more matches than Jaro-Winkler (only 80% sensitivity). While the precision improvement is great, that lower sensitivity could be a concern if we need to catch as many true matches as possible.
+
+* Phonetic Matching
+The phonetic matching is still our most aggressive matcher - it finds about 96% of true matches (highest sensitivity), but its precision is only around 27%. While this is better than its non-blocked version (which was at 5%), it's still generating quite a few false positives.
+
+Overall I would say the most exciting thing I'm seeing is how city blocking dramatically improved our precision across all methods while maintaining very high accuracy (99.9%+). This tells me that restricting comparisons to records within the same city is a really effective strategy, it's cutting out a lot of the noise that was causing false matches in our previous approach.
+
+If I had to pick a winner here, I'd go with the Jaro-Winkler method with city blocking. It gives us the best balance of precision and sensitivity, and those numbers look much more practical for real-world use than our non-blocked results.
 
 
 ## Approach 3: Blocking on Zip
