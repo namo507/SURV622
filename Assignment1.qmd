@@ -62,12 +62,12 @@ admindata$lastthree <- substring(admindata$lastname,1,3)
 identity_survey <- surveydata$matchid
 identity_admin <- admindata$matchid
 
-# Verify the data
+# Verifying the data
 cat("Data dimensions:\n")
 cat("Survey data:", dim(surveydata), "\n")
 cat("Admin data:", dim(admindata), "\n")
 
-# Check for NA values in key fields
+# Checking for NA values in key fields
 cat("\nMissing values in key fields:\n")
 cat("Survey DOB NAs:", sum(is.na(surveydata$dob)), "\n")
 cat("Admin DOB NAs:", sum(is.na(admindata$dob)), "\n")
@@ -126,12 +126,12 @@ exact_phonetic_w <- emWeights(exact_phonetic, cutoff = 0.95)
 exact_phonetic_class <- emClassify(exact_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
-# Extract error measures from each method
+# Extracting error measures from each method
 err_jarowinkler <- getErrorMeasures(exact_jarowinkler_class)
 err_levenshtein <- getErrorMeasures(exact_levenshtein_class)
 err_phonetic     <- getErrorMeasures(exact_phonetic_class)
 
-# Create a data frame summarizing key metrics
+# Creating a data frame summarizing key metrics
 comparison_table <- data.frame(
   Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
   Accuracy = c(err_jarowinkler$accuracy,
@@ -208,12 +208,12 @@ city_block_phonetic_w <- emWeights(city_block_phonetic, cutoff = 0.95)
 city_block_phonetic_class <- emClassify(city_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
-# Extract error measures
+# Extracting error measures
 err_city_block_jarowinkler <- getErrorMeasures(city_block_jarowinkler_class)
 err_city_block_levenshtein <- getErrorMeasures(city_block_levenshtein_class)
 err_city_block_phonetic    <- getErrorMeasures(city_block_phonetic_class)
 
-# Create Comparison Table
+# Creating Comparison Table
 comparison_table_city_block <- data.frame(
   Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
   Accuracy = c(err_city_block_jarowinkler$accuracy, err_city_block_levenshtein$accuracy, err_city_block_phonetic$accuracy),
@@ -289,12 +289,12 @@ zip_block_phonetic_w <- emWeights(zip_block_phonetic, cutoff = 0.95)
 zip_block_phonetic_class <- emClassify(zip_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
-# Extract error measures
+# Extracting error measures
 err_zip_block_jarowinkler <- getErrorMeasures(zip_block_jarowinkler_class)
 err_zip_block_levenshtein <- getErrorMeasures(zip_block_levenshtein_class)
 err_zip_block_phonetic    <- getErrorMeasures(zip_block_phonetic_class)
 
-# Create Comparison Table
+# Creating Comparison Table
 comparison_table_zip_block <- data.frame(
   Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
   Accuracy = c(err_zip_block_jarowinkler$accuracy, err_zip_block_levenshtein$accuracy, err_zip_block_phonetic$accuracy),
@@ -370,12 +370,12 @@ lastname_block_phonetic_w <- emWeights(lastname_block_phonetic, cutoff = 0.95)
 lastname_block_phonetic_class <- emClassify(lastname_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
-# Extract error measures
+# Extracting error measures
 err_lastname_block_jarowinkler <- getErrorMeasures(lastname_block_jarowinkler_class)
 err_lastname_block_levenshtein <- getErrorMeasures(lastname_block_levenshtein_class)
 err_lastname_block_phonetic    <- getErrorMeasures(lastname_block_phonetic_class)
 
-# Create Comparison Table
+# Creating Comparison Table
 comparison_table_lastname_block <- data.frame(
   Method = c("Jarowinkler", "Levenshtein", "Phonetic"),
   Accuracy = c(err_lastname_block_jarowinkler$accuracy, err_lastname_block_levenshtein$accuracy, err_lastname_block_phonetic$accuracy),
