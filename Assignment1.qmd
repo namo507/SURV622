@@ -306,6 +306,22 @@ comparison_table_zip_block <- data.frame(
 print(comparison_table_zip_block)
 ```
 
+Now analysing with ZIP Blocking:
+
+* Jaro-Winkler Method 
+I'm absolutely amazed by how well the Jaro-Winkler method performed with ZIP code blocking. The precision skyrocketed to about 95%. This means when the method says "these records match," it's right 95 out of 100 times. Even better, it still maintains that strong 90% sensitivity, meaning it's catching most of the true matches. This is a dramatic improvement over both the no-blocking approach and even the city-blocking method.
+
+* Levenshtein Distance
+The Levenshtein approach shows similarly impressive precision (about 95%), nearly matching Jaro-Winkler. However, it's still showing that same limitation we saw before, it's only catching about 80% of the true matches. While the precision is fantastic, missing 20% of true matches might be too big a trade-off in some situations.
+
+* Phonetic Matching 
+The phonetic matching seems to have struggled with ZIP blocking. While it still finds about 96% of true matches (highest sensitivity), its precision dropped dramatically to about 5%. This is surprisingly lower than what we saw with city blocking, suggesting that ZIP codes might actually be too restrictive for phonetic matching.
+
+
+So, using ZIP codes for blocking has given me the best precision yet, especially with the Jaro-Winkler method. The accuracy remains extremely high across all methods (99.8%+), but the real story here is how ZIP blocking helped Jaro-Winkler and Levenshtein methods achieve such high precision without sacrificing too much sensitivity.
+
+If I had to pick a winner based on these results, I'd definitely go with the Jaro-Winkler method with ZIP blocking. Getting 95% precision while still catching 90% of true matches is a fantastic balance that would work well in most real-world applications.
+
 
 ## Approach 4: Blocking on Lastname
 
