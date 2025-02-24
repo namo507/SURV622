@@ -1,0 +1,344 @@
+---
+title: "Reddit API in R"
+author: "Robyn Ferg"
+date: "2023-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reddit
+
+Reddit is an American social news aggregation, content rating, and discussion website. Registered users (commonly referred to as "Redditors") submit content to the site such as links, text posts, images, and videos, which are then voted up or down by other members. Posts are organized by subject into user-created boards called "communities" or "subreddits". Submissions with more upvotes appear towards the top of their subreddit and, if they receive enough upvotes, ultimately on the site's front page.
+
+If you're not familiar with the reddit platform, it might be helpful to explore the website for a few minutes to get a feel for how the platform works: [Reddit](https://www.reddit.com/).
+
+Reddit has a free API available that can used to scrape posts, comments, and user history. A watered-down version of this API is available in the RedditExtractor R package.
+
+In this tutorial, we will explore how to use to RedditExtractor R package to scrape Reddit posts, perform some exploratory and sentiment analyses on the scraped posts.
+
+# Resources
+
+Much of this material comes from the following sources, and may be useful if your run into any issues:
+
+* [RedditExtractoR CRAN README](https://cran.r-project.org/web/packages/RedditExtractoR/readme/README.html)
+* [RedditExtractoR GitHub](https://github.com/ivan-rivera/RedditExtractor)
+* [RedditExtractoR Function Information](https://cran.r-project.org/web/packages/RedditExtractoR/RedditExtractoR.pdf)
+
+# RedditExtractoR Package
+
+## Installation 
+
+First, download and load the package into R. (Note: I had some issues installing the package. You only need to use one of the two installations below, but you many have more luck with one over the other.)
+
+```{r load_package}
+#install.packages("RedditExtractoR")
+# devtools::install_github('ivan-rivera/RedditExtractor')
+library(RedditExtractoR)
+```
+
+## Scraping Posts
+
+Reddit threads can be searched for using the 'find_thread_url' function, which has the following arguments:
+
+* keywords: A string to search for. If no keywords are given, the function returns the front page of a specified subreddit.
+* sort_by: Specifies how posts are sorted. The default is top posts first.
+* subreddit: The subreddit of interest. This argument is optional if just searching for keywords on the front page.
+* period: Time period to search for--hour, day, week, month, year, all. Default is month.
+
+Let's say we're interested in the top posts of Reddit today about dogs:
+
+```{r find_thread_url_dog}
+dog_urls = find_thread_urls(keywords='dog', period='day')
+dim(dog_urls)
+head(dog_urls)
+```
+
+For image and video posts, you can post the urls into your browser to look at the content of the post.
+
+Now let's say we're interested in the top posts from 'cats' subreddit this month:
+
+```{r find_thread_url_cats}
+cats_urls = find_thread_urls(subreddit='cats')
+dim(cats_urls)
+head(cats_urls)
+```
+
+The find_thread_url function gives some information on the posts: date, timestamp, title of the post, text (if post contains text), subreddit, number of comments, and url.
+
+Let's explore the cat subreddit posts in more detail and get more information on the posts.
+
+The 'get_thread_content' takes a set of URLs and returns two lists: one containing meta data describing each thread, and another with comments found in the threads.
+
+```{r get_thread_content}
+cats_content = get_thread_content(cats_urls$url[1:25])
+
+names(cats_content)
+
+dim(cats_content$threads)
+head(cats_content$threads)
+```
+
+The 'threads' data frame gives some more information on the posts: author, number of upvotes and downvotes, ratio of upvotes, number of awards received, golds, and cross-posts.
+
+```{r}
+dim(cats_content$comments)
+head(cats_content$comments)
+```
+
+The 'comments' data frame gives comments on the main post. Many population Reddit posts contain many layers of comments. The RedditExtractoR does not give this information (although it is available on the Reddit API).
+
+Lastly, we can search for subreddits based on a keyword using the 'find_subreddits' function.
+
+```{r find_subreddits}
+dog_subreddits = find_subreddits('dogs')
+head(dog_subreddits)
+dim(dog_subreddits)
+```
+
+The RedditExractoR package also has an option to retrieve information from a particular user, but this tutorial will not explore that function.
+
+# Exploratory Analysis
+
+The timestamp variable is given as a UNIX timestamp, the number of seconds from 1/1/70. Let's first convert this variable into a date and time.
+
+```{r datetime}
+library(lubridate)
+cats_urls$datetime = as_datetime(cats_urls$timestamp)
+head(cats_urls[,c('date_utc', 'datetime')])
+
+dog_urls$datetime = as_datetime(dog_urls$timestamp)
+```
+
+In the past month, when were the top cats subreddit posts posted?
+
+```{r}
+library(ggplot2)
+ggplot(cats_urls, aes(x=datetime)) +
+  geom_histogram() +
+  xlab('Date') + ylab('Count') + ggtitle('Frequency of Top Cat Posts in Past Month')
+```
+
+What about the dogs posts from today?
+
+```{r}
+ggplot(dog_urls, aes(x=datetime)) +
+  geom_histogram()+
+  xlab('Date') + ylab('Count') + ggtitle('Frequency of Top Dog Posts Today')
+```
+
+Is there a relationship between score and hour of the posting?
+
+```{r}
+cats_content$threads$datetime = as_datetime(cats_content$threads$timestamp)
+cats_content$threads$timeofday = format(as.POSIXct(cats_content$threads$datetime),
+                                        format="%H")
+
+ggplot(cats_content$threads, aes(as.numeric(timeofday), score)) +
+  geom_point() +
+  xlab('Time of Day') + ylab('Score')
+```
+
+Do comments with more total votes have more comments?
+
+```{r}
+cats_content$threads$totalvotes = cats_content$threads$upvotes + cats_content$threads$downvotes
+cats_content$comments$dummy = 1
+cats_comments = aggregate(list('num_comments'=cats_content$comments$dummy),
+                          list('url'=cats_content$comments$url),
+                          sum)
+head(cats_comments)
+
+cats_comments = merge(cats_comments,
+                      cats_content$threads,
+                      by='url', all.x=TRUE)
+
+ggplot(cats_comments, aes(x=totalvotes, y=num_comments)) +
+  geom_point()
+cor(cats_comments$totalvotes, cats_comments$num_comments)
+summary(lm(num_comments ~ totalvotes, data=cats_comments))
+```
+
+To scrape even more posts possibly related to dogs, we can loop through the subreddits related to dogs and scrape the top posts from each subreddit. Note that due to the API limit on scraping, you may get an error when looping through ALL of the related subreddits. To get posts from all of the subreddits, split up the related subreddits among your group.
+
+```{r}
+dog_subreddit_posts = data.frame()
+for(subreddit in dog_subreddits$subreddit[1:25]){
+  subreddit_posts = find_thread_urls(subreddit = subreddit)
+  dog_subreddit_posts = rbind(dog_subreddit_posts, subreddit_posts)
+}
+dim(dog_subreddit_posts)
+table(dog_subreddit_posts$subreddit)
+```
+
+While some of the posts may be actually related to dogs, others may not be. Let's look at a random sample of 15 posts:
+
+```{r}
+print(dog_subreddit_posts[sample(1:nrow(dog_subreddit_posts), 15),])
+```
+
+Let's subset these to posts in which the title or post contains: dog, puppy, cat, or pet.
+
+```{r}
+patterns = 'dog|puppy|cat|pet'
+subset_dog_posts = dog_subreddit_posts[grepl(patterns, dog_subreddit_posts$title, ignore.case=TRUE) |
+                                         grepl(patterns, dog_subreddit_posts$text, ignore.case=TRUE),]
+dim(subset_dog_posts)
+head(subset_dog_posts)
+```
+
+# Analysis
+
+## Frequent Terms
+
+To see what population terms are in your collected posts, we'll use text mining package 'qdap' to look at frequent terms. Qdap will require you to have Java installed on your computer matching (32-bit vs. 64-bit) your version of R. If you get an error when loading qdap, Get the right version of Java at https://www.java.com/en/download/manual.jsp.
+
+```{r}
+library(qdap)
+```
+
+Since only some posts contain text, let's create a new field that combines the post title and post text into one string.
+
+```{r}
+subset_dog_posts$title_text = paste(subset_dog_posts$title, subset_dog_posts$text)
+```
+
+What are the top 30 most frequently used words?
+
+```{r}
+frequent_terms = freq_terms(subset_dog_posts$title_text, 30)
+plot(frequent_terms)
+```
+
+Some of these words are expected, such as 'dog'. Not that this is counting the number of times these words appear, not the number of posts in which these words appear. If 'dog' is in one post 3 times, it adds 3 instances of 'dog' to the totals reflected above.
+
+We also get words that don't mean much to use, like 'the', 'to', 'a', etc. These are typically called stopwords. Let's remove these.
+
+```{r}
+bagDogs = subset_dog_posts$title_text %>% iconv ("latin1", "ASCII", sub ="") %>% scrubber () %sw%
+qdapDictionaries :: Top200Words
+```
+
+And now look at the frequent terms again.
+
+```{r}
+frequent_terms = freq_terms(bagDogs, 30)
+plot(frequent_terms)
+```
+
+Looking at the frequent, we might see be able to detect some topics that aren't related to the topic of interest. We can use this to further narrow down our corpus.
+
+## Sentiment Analysis
+
+Once we have a narrowed down corpus, we can perform a sentiment analysis to assign a tone, either positive or negative, to the content of the tweets.
+
+We will use various methods to calculate the sentiment of tweets. The first four are dictionary-based methods, with the dictionaries being included in the 'SentimentAnalysis' package.
+
+```{r}
+library(SentimentAnalysis)
+```
+
+The four dictionaries are:
+
+* GI: Harvard-IV General Inquirer dictionary
+* HE: Henry's finance specific dictionary
+* LM: Loughran-McDonald financial dictionary
+* QDAP
+
+More details on this package can be found at: \url{https://cran.r-project.org/web/packages/SentimentAnalysis/
+SentimentAnalysis.pdf}
+
+To see the words in one of these dictionaries:
+
+```{r}
+DictionaryGI$positive[1:100]
+DictionaryGI$negative[1:100]
+```
+
+The fifth dictionary is Lexicoder, which consists of word lists for positive, negative, negated positive, and negated negative words. The Lexicoder dictionaries are in the quanteda package.
+
+```{r}
+library(quanteda)
+data_dictionary_LSD2015$negative[1:50]
+data_dictionary_LSD2015$positive[1:50]
+data_dictionary_LSD2015$neg_positive[1:50]
+data_dictionary_LSD2015$neg_negative[1:50]
+```
+
+To calculate sentiment of each title/text combinateion using the SentimentAnalysis package:
+
+```{r}
+sentiments = analyzeSentiment(iconv(as.character(subset_dog_posts$title_text), to='UTF-8'))
+head(sentiments)
+```
+
+The variables are:
+
+* wordCount = number of non-stopwords in the text
+* NegativityGI = number of negative words in the text that are in the GI negative dictionary/wordCount
+* PositivityGI = number of positive words in the text that are in the GI positive dictionary/wordCount
+* SentimentGI = PositivityGI - NegativityGI = (# pos words - # neg words)/wordCount
+
+HE, LM, QDAP are similar.
+
+When using Lexicoder, we calculate:
+
+number of positive words = positive words - negated positive + negated negative
+
+number of negative words = negative words - negated negative + negated positive
+
+```{r}
+tokenized = tokens_lookup(tokens(subset_dog_posts$title_text), dictionary = data_dictionary_LSD2015, exclusive=FALSE)
+sentiments$LCpos = sapply(tokenized, function(x)sum(x=='POSITIVE')-sum(x=='NEG_POSITIVE') + sum(x =='NEG_NEGATIVE'))
+sentiments$LCneg = sapply(tokenized, function(x)sum(x=='NEGATIVE')-sum(x=='NEG_NEGATIVE') + sum(x=='NEG_POSITIVE'))
+sentiments$LC = (sentiments$LCpos - sentiments$LCneg)/sentiments$WordCount
+```
+
+The next sentiment method we consider is a rule-based sentiment analysis tool called Vader. Vader takes all of the lexical and grammatical features of the tweet and returns a continuous sentiment score between -1 (very negative) to 1 (very positive).
+
+```{r}
+library(vader)
+```
+
+```{r}
+vader_scores = vader_df(subset_dog_posts$title_text)
+sentiments$Vader = vader_scores$compound
+```
+
+To see how the different sentiment methods compare against each other:
+
+```{r}
+library(GGally)
+
+with(sentiments, 
+     ggpairs(data.frame(SentimentGI, SentimentHE, SentimentLM, SentimentQDAP, LC, Vader)))
+```
+
+We next look at how sentiment changes over time. On the graph below, the x-axis is the time and date the post was created, and the y-axis is the Vader sentiment of the post.
+
+```{r}
+all_subset_dog_data = cbind(subset_dog_posts, sentiments)
+ggplot(all_subset_dog_data, aes(x=as.Date(date_utc), y=Vader)) +
+  geom_point() + geom_smooth()
+```
+
+we can also see if there is a statistically significant different between sentiment of posts on different subreddits.
+
+```{r}
+table(all_subset_dog_data$subreddit)
+
+par(mfrow=c(1,2))
+hist(all_subset_dog_data$Vader[all_subset_dog_data$subreddit=='aww'], main='aww', xlab='Vader')
+hist(all_subset_dog_data$Vader[all_subset_dog_data$subreddit=='dogsofrph'], main='dogsofrph', xlab='Vader')
+
+t.test(all_subset_dog_data$Vader[all_subset_dog_data$subreddit=='aww'],
+       all_subset_dog_data$Vader[all_subset_dog_data$subreddit=='dogsofrph'])
+```
+
+Many more questions can be asked of the Reddit data, such as:
+
+* Are text posts or non-text posts higher rated? 
+* Does the sentiment of the text post related to the length of the text?
+* Do the comments of a text post follow similar sentiment as the main post?

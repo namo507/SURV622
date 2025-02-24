@@ -1,0 +1,115 @@
+---
+title: "Pulling Data from APIs"
+author: Brian Kim
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, warning=FALSE, message=FALSE)
+```
+
+APIs (application programming interfaces) are hosted on web servers. When you type www.google.com in your browser's address bar, your computer is actually asking the www.google.com server for a webpage, which it then returns to your browser. APIs work much the same way, except instead of your web browser asking for a webpage, your program asks for data. This data is usually returned in JSON format.
+
+To retrieve data, we make a request to a webserver. The server then replies with our data. In R, we'll use the `httr` library to do this.
+
+## PatentsView Data
+
+The PatentsView platform is built on data derived from the US Patent and Trademark Office (USPTO) bulk data to link inventors, their organizations, locations, and overall patenting activity. The PatentsView API provides programmatic access to longitudinal data and metadata on patents, inventors, companies, and geographic locations since 1976.
+
+To access the API, we use the request function. In order to tell Python what to access, we need to specify the url of the API endpoint.
+
+PatentsView has several API endpoints. An endpoint is a server route that is used to retrieve different data from the API. You can think of the endpoints as just specifying what types of data you want. Examples of PatentsView API endpoints are shown here: http://www.patentsview.org/api/doc.html
+
+Many times, we need to request a key from the data provider in order to access an API. For example, if you wanted to access the Twitter API, then you would need to get a Twitter developer account and access token (see https://developer.twitter.com/en/docs/basics/authentication/overview/oauth). Currently no key is necessary to access the PatentsView API.
+
+## Motivating Question
+
+We will use the `httr` package to retrieve information about the patents that have been granted to inventors at University of Maryland, using the PatentsView API, then use the `jsonlite` package to convert it into a usable format (that is, a dataframe). This notebook goes over using getting the data, customizing the query to get the data that you need, and formatting the data once you've gotten it from the API.
+
+## Accessing the PatentsView API
+
+When you ping a website or portal for information this is called making a request. That is exactly what the requests library has been designed to do. However, we need to provide a query URL according to the format defined by PatentsView. The details on how to do that is explained at [this link](https://www.patentsview.org/api/query-language.html).
+
+### Starting out
+
+```{r}
+if (!requireNamespace("httr", quietly = TRUE)) {
+  install.packages("httr")
+}
+if (!requireNamespace("jsonlite", quietly = TRUE)) {
+  install.packages("jsonlite")
+}
+
+library('httr')
+library('jsonlite')
+```
+
+### Building the Request
+
+
+```{r}
+url <- 'https://www.patentsview.org/api/patents/query'
+request <- GET(url, query = list(q = '{"assignee_organization":"university of maryland"}'))
+```
+
+```{r}
+request$status_code
+```
+
+### Accessing the Content
+
+```{r}
+head(request$content)
+```
+
+```{r}
+raw_content <- rawToChar(request$content)
+str(raw_content)
+```
+```{r}
+patent_data <- fromJSON(raw_content)
+str(patent_data)
+```
+
+```{r}
+patent_df <- patent_data$patents
+head(patent_df)
+```
+
+### Adding More Options
+
+```{r}
+qry <- list(q = '{"assignee_organization":"university of maryland"}', 
+            f='["patent_title","patent_year"]',
+            o='{"per_page":50}')
+request <- GET(url, query = qry)
+request$status_code
+```
+
+```{r}
+df <- fromJSON(rawToChar(request$content))$patents
+
+```
+
+### Getting All University of Maryland Patents
+
+```{r}
+qry <- list(q = '{"assignee_organization":"university of maryland"}', 
+            f='["patent_title","patent_year", "patent_abstract"]',
+            o='{"per_page":2000}')
+request <- GET(url, query = qry)
+request$status_code
+```
+
+```{r}
+umd_patents <- fromJSON(rawToChar(request$content))$patents
+str(umd_patents)
+```
+
+## Exercises
+
+**1. How might we change the code above to pull patent data for patents that were awarded to University of Michigan?** 
+
+**2. Using the information in <https://www.patentsview.org/api/patent.html>, try adding some more fields and pulling some more data.**
