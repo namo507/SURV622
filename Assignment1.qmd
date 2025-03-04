@@ -93,7 +93,7 @@ exact_jarowinkler <- RLBigDataLinkage(
   strcmpfun = "jarowinkler",
   exclude = c(1:2, 5:13, 15:18)
 )
-exact_jarowinkler_w <- emWeights(exact_jarowinkler, cutoff = 0.95)
+exact_jarowinkler_w <- emWeights(exact_jarowinkler, cutoff = 0.65)
 exact_jarowinkler_class <- emClassify(exact_jarowinkler_w, threshold.upper = 0)
 ```
 ```{r}
@@ -108,7 +108,7 @@ exact_levenshtein <- RLBigDataLinkage(
   strcmpfun = "levenshtein",
   exclude = c(1:2, 5:13, 15:18)
 )
-exact_levenshtein_w <- emWeights(exact_levenshtein, cutoff = 0.95)
+exact_levenshtein_w <- emWeights(exact_levenshtein, cutoff = 0.65)
 exact_levenshtein_class <- emClassify(exact_levenshtein_w, threshold.upper = 0)
 ```
 ```{r}
@@ -122,7 +122,7 @@ exact_phonetic <- RLBigDataLinkage(
   phonetic = TRUE,
   exclude = c(1:2, 5:13, 15:18)
 )
-exact_phonetic_w <- emWeights(exact_phonetic, cutoff = 0.95)
+exact_phonetic_w <- emWeights(exact_phonetic, cutoff = 0.65)
 exact_phonetic_class <- emClassify(exact_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
@@ -175,7 +175,7 @@ city_block_jarowinkler <- RLBigDataLinkage(
   strcmpfun = "jarowinkler",
   exclude = c(1:2, 5:13, 15:18)
 )
-city_block_jarowinkler_w <- emWeights(city_block_jarowinkler, cutoff = 0.95)
+city_block_jarowinkler_w <- emWeights(city_block_jarowinkler, cutoff = 0.65)
 city_block_jarowinkler_class <- emClassify(city_block_jarowinkler_w, threshold.upper = 0)
 ```
 ```{r}
@@ -190,7 +190,7 @@ city_block_levenshtein <- RLBigDataLinkage(
   strcmpfun = "levenshtein",
   exclude = c(1:2, 5:13, 15:18)
 )
-city_block_levenshtein_w <- emWeights(city_block_levenshtein, cutoff = 0.95)
+city_block_levenshtein_w <- emWeights(city_block_levenshtein, cutoff = 0.65)
 city_block_levenshtein_class <- emClassify(city_block_levenshtein_w, threshold.upper = 0)
 ```
 ```{r}
@@ -204,7 +204,7 @@ city_block_phonetic <- RLBigDataLinkage(
   phonetic = TRUE,
   exclude = c(1:2, 5:13, 15:18)
 )
-city_block_phonetic_w <- emWeights(city_block_phonetic, cutoff = 0.95)
+city_block_phonetic_w <- emWeights(city_block_phonetic, cutoff = 0.65)
 city_block_phonetic_class <- emClassify(city_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
@@ -256,7 +256,7 @@ zip_block_jarowinkler <- RLBigDataLinkage(
   strcmpfun = "jarowinkler",
   exclude = c(1:2, 5:13, 15:18)
 )
-zip_block_jarowinkler_w <- emWeights(zip_block_jarowinkler, cutoff = 0.95)
+zip_block_jarowinkler_w <- emWeights(zip_block_jarowinkler, cutoff = 0.65)
 zip_block_jarowinkler_class <- emClassify(zip_block_jarowinkler_w, threshold.upper = 0)
 ```
 ```{r}
@@ -271,7 +271,7 @@ zip_block_levenshtein <- RLBigDataLinkage(
   strcmpfun = "levenshtein",
   exclude = c(1:2, 5:13, 15:18)
 )
-zip_block_levenshtein_w <- emWeights(zip_block_levenshtein, cutoff = 0.95)
+zip_block_levenshtein_w <- emWeights(zip_block_levenshtein, cutoff = 0.65)
 zip_block_levenshtein_class <- emClassify(zip_block_levenshtein_w, threshold.upper = 0)
 ```
 ```{r}
@@ -285,7 +285,7 @@ zip_block_phonetic <- RLBigDataLinkage(
   phonetic = TRUE,
   exclude = c(1:2, 5:13, 15:18)
 )
-zip_block_phonetic_w <- emWeights(zip_block_phonetic, cutoff = 0.95)
+zip_block_phonetic_w <- emWeights(zip_block_phonetic, cutoff = 0.65)
 zip_block_phonetic_class <- emClassify(zip_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
@@ -337,7 +337,7 @@ lastname_block_jarowinkler <- RLBigDataLinkage(
   strcmpfun = "jarowinkler",
   exclude = c(1:2, 5:13, 15:18)
 )
-lastname_block_jarowinkler_w <- emWeights(lastname_block_jarowinkler, cutoff = 0.95)
+lastname_block_jarowinkler_w <- emWeights(lastname_block_jarowinkler, cutoff = 0.65)
 lastname_block_jarowinkler_class <- emClassify(lastname_block_jarowinkler_w, threshold.upper = 0)
 ```
 ```{r}
@@ -352,7 +352,7 @@ lastname_block_levenshtein <- RLBigDataLinkage(
   strcmpfun = "levenshtein",
   exclude = c(1:2, 5:13, 15:18)
 )
-lastname_block_levenshtein_w <- emWeights(lastname_block_levenshtein, cutoff = 0.95)
+lastname_block_levenshtein_w <- emWeights(lastname_block_levenshtein, cutoff = 0.65)
 lastname_block_levenshtein_class <- emClassify(lastname_block_levenshtein_w, threshold.upper = 0)
 ```
 ```{r}
@@ -366,7 +366,7 @@ lastname_block_phonetic <- RLBigDataLinkage(
   phonetic = TRUE,
   exclude = c(1:2, 5:13, 15:18)
 )
-lastname_block_phonetic_w <- emWeights(lastname_block_phonetic, cutoff = 0.95)
+lastname_block_phonetic_w <- emWeights(lastname_block_phonetic, cutoff = 0.65)
 lastname_block_phonetic_class <- emClassify(lastname_block_phonetic_w, threshold.upper = 0)
 ```
 ```{r}
