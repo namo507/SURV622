@@ -472,3 +472,39 @@ ggplot(plot_data, aes(x = Method, y = Approach, fill = Value)) +
   labs(title = "Heatmap of Performance Metrics",
        fill = "Score")
 ```
+
+
+
+
+
+```{r}
+library(DiagrammeR)
+```
+
+```{r}
+library(DiagrammeR)
+
+DiagrammeR::grViz("
+digraph NCP_VR_CLI {
+  graph [layout = dot, rankdir = LR]
+
+  node [shape = box, style = filled, fillcolor = lightblue, fontname = Helvetica]
+
+  SI [label = \"Prior Story Information\\n(SIᵢ)\"]
+  ReasoningModel [label = \"Reasoning Model (πRθ)\\n(trained with RL + VR-CLI reward)\"]
+  DetailedPlan [label = \"Detailed Plan (p̂)\\n(reasoning + plan for next chapter)\"]
+  FrozenGenerator [label = \"Frozen Story Generator (πG)\"]
+  Likelihood [label = \"Likelihood of Actual\\nNext Chapter (cᵢ₊₁)\"]
+  VRCLI [label = \"VR-CLI Reward Computation:\\n- Compare πG's likelihood of cᵢ₊₁ with and without p̂.\\n- Reward (R) = Improvement in likelihood when using p̂.\\n- Higher R indicates better planning by πRθ.\", shape = note, fillcolor = lightyellow]
+  RL [label = \"Reinforcement Learning (GRPO):\\n- Use R to update πRθ.\\n- Goal: Maximize R by generating better p̂.\", shape = note, fillcolor = lightyellow]
+
+  SI -> ReasoningModel
+  ReasoningModel -> DetailedPlan
+  DetailedPlan -> FrozenGenerator
+  FrozenGenerator -> Likelihood
+  DetailedPlan -> VRCLI [style = dashed]
+  VRCLI -> RL [style = dashed]
+  RL -> ReasoningModel [style = dashed]
+}
+")
+```
